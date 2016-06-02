@@ -4,12 +4,12 @@ from flask import render_template, request
 from flask.views import MethodView
 from models import LightScript, GridLayout, Selector
 from extensions import DB
+import smbus
+import subprocess
+import time
 
-
-#ser = serial.Serial('/dev/cu.usbmodem1421', 19200)
-ser = 1
-
-#{"type": "value", "name": "Brightness", "rangelower": 0, "rangeupper": 255}
+bus = smbus.SMBus(1)
+i2caddress = 5
 
 modes = [
     {"name": "Bounce", "opmode": 0, "controls": [
@@ -31,7 +31,6 @@ modes = [
         {"type": "time", "name": "Speed"},
         {"type": "value", "name": "Subdivisions", "rangelower": 0, "rangeupper": 3}]}
 ]
-
 
 def isMobile(req):
     userAgent = req.headers.get("User-Agent")
@@ -99,6 +98,28 @@ class GridLayoutView(MethodView):
         layoutObj = {"user": layout.user, "scripts": layout.scripts}
 
         return json.dumps(layoutObj)
+
+
+class PlayScriptView(MethodView):
+
+    def post(self):
+        script = request.get_json()
+        print script
+        msg = str(script["id"]) + "."
+        script.pop("id", None)
+        for key in script.keys():
+            msg += str(script[key]) + "."
+
+        print msg
+
+        msg_byte_list = []
+        for char in msg:
+            msg_byte_list.append(ord(char))
+        try:
+            bus.write_i2c_block_data(i2caddress, 0x00, msg_byte_list)
+        except IOError:
+            subprocess.call(['i2cdetect', '-y', '1'])
+        return json.dumps({"status": "OK"})
 
 
 class ScriptsView(MethodView):

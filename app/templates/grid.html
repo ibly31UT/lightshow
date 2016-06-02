@@ -1,15 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
+<div id="colorPreview" class="navbar-fixed-top" style="display:none; height:100px; border-bottom-color: black; border-bottom: thin solid black">
+</div>
 <div class="panel panel-info">
     <div class="panel-body text-center">
         <div class="col-md-4" style="margin-top: 5px; margin-bottom: 5px">
-            <button id="toggleDragButton" class="btn {%if not mobile%}btn-lg{%endif%} btn-success">Dragging Enabled</button>
+            <button id="toggleDragButton" class="btn btn-block {%if not mobile%}btn-lg{%endif%} btn-danger" style="padding-top:20px; padding-bottom:20px"><strong>Dragging Disabled</strong></button>
         </div>
         <div class="col-md-4" style="margin-top: 5px; margin-bottom: 5px">
-            <button id="saveGridButton" class="btn {%if not mobile%}btn-lg{%endif%} btn-success">Save Changes</button>
+            <button id="saveGridButton" class="btn btn-block {%if not mobile%}btn-lg{%endif%} btn-success" style="padding-top:20px; padding-bottom:20px"><strong>Save Changes</strong></button>
         </div>
         <div class="dropdown col-md-4" style="margin-top: 5px; margin-bottom: 5px">
-            <button class="btn btn-primary {%if not mobile%}btn-lg{%endif%} dropdown-toggle" type="button" data-toggle="dropdown">Add a Script      <span class="caret"></span></button>
+            <button class="btn btn-primary btn-block {%if not mobile%}btn-lg{%endif%} dropdown-toggle" type="button" data-toggle="dropdown" style="padding-top:20px; padding-bottom:20px"><strong>Add a Script      </strong><span class="caret" style="margin-left:10px"></span></button>
             <ul class="dropdown-menu">
             {% for script in scripts %}
                 <li><a href="#" class="addScriptButton" id="{{script.id}}">{{script.name}}</a></li>
@@ -22,20 +24,14 @@
     <ul></ul>
 </div>
 <div style="height: 200px"></div> <!-- so the selectors bar doesn't get cut off -->
-<div id="selectors" class="footer navbar-fixed-bottom" style="display:none; background-color: #f5f5f5; border-style: solid; border-top: thick single;">    
+<div id="selectors" class="footer navbar-fixed-bottom" style="display:none; background-color: #f5f5f5; border-style: solid; border-top: thick single; padding: 10px">    
     <a href="#" id="closeSelectorsButton" style="float:right; margin-right: 5px; color: black; z-index: 3;">&times;</a>
     <div id="selectorsContent" class="container" style="margin-top: 5px">
-        <div class="panel-header">
-            <strong>Stuff in here</strong>
-        </div>
-        <div class="panel-body">
-            <p>Buttons</p>
-        </div>
     </div>
-    <button class="btn btn-success btn-lg btn-block" type="button" style="margin-bottom:5px; margin-top:5px; margin-left:auto; margin-right:auto ; width:80%">Play Script</button>
+    <button id="playScript" class="btn btn-success btn-lg btn-block" type="button" style="margin-bottom:5px; margin-top:5px; margin-left:auto; margin-right:auto ; width:80%">Play Script</button>
 </div>
 <script>
-$( document ).ready(function() {
+$(document).ready(function() {
     function serializeParams(widget, wgd){
         return { script_id: widget.attr("id"), col: wgd.col, row: wgd.row, size_x: wgd.size_x, size_y: wgd.size_y }
     }
@@ -43,7 +39,7 @@ $( document ).ready(function() {
     function widgetHTMLForScript(script){
         var scriptHTML = '<li id=' + script.id + ' class="btn scriptButton ' + script.color + '" data-sizex="1" data-sizey="2" style="white-space: normal; word-wrap: break-word;">' + 
             '<a href="#" class="closeScriptButton" style="float:right; margin-right: 5px; color: white; z-index: 3;">&times;</a><strong>'
-             + script.name + '</strong><p>' + script.script + '</p></li>';
+             + script.name + '</strong><div style="width:100%; height:1px; background-color:black; opacity:0.2"></div><p>' + script.script + '</p></li>';
         return scriptHTML;
     }
 
@@ -86,6 +82,8 @@ $( document ).ready(function() {
         serialize_params: serializeParams
     }).data("gridster");
 
+    gridster.disable(); 
+
     var scripts = [];
     var selectors = [];
     $.get({
@@ -94,8 +92,6 @@ $( document ).ready(function() {
         success: function(response){
             scripts = response["scripts"];
             selectors = response["selectors"];
-
-            console.log(selectors);
         }
     });
 
@@ -121,17 +117,60 @@ $( document ).ready(function() {
         var button = $("#toggleDragButton");
         if(button.hasClass("btn-success")){
             button.removeClass("btn-success").addClass("btn-danger");
-            button.html("Dragging Disabled");
+            button.html("<strong>Dragging Disabled</strong>");
             gridster.disable();
         }else{
             button.removeClass("btn-danger").addClass("btn-success");
-            button.html("Dragging Enabled");
+            button.html("<strong>Dragging Enabled</strong>");
             gridster.enable();
         }
     });
 
+    $("#selectorsContent").click(function(event){
+        event.stopPropagation();
+    });
+
+    $("#playScript").click(function(){
+        scriptParams = {};
+        var selectorsContent = $("#selectorsContent");
+        var colorPickers = document.getElementsByClassName("colorPicker");
+        var speedSlider = $(".speed-slider");
+        var speed = 75;
+        if(speedSlider != null){
+            speed = speedSlider.attr("value");
+        }
+
+        var colors = ["#FF0000", "#00FF00", "#0000FF"];
+        if(colorPickers.length > 0){
+            var i;
+            for(i = 0; i < colorPickers.length; i++){
+                var value = $(colorPickers[i]).find(".colorInput");
+                colors[i] = value.attr("value");
+            }
+        }
+
+        $.ajax({
+            url: "/playScript",
+            data: JSON.stringify({"id": 4, "color1": colors[0], "color2": colors[1], "color3": colors[2], "speed": speed}),
+            type: "POST",
+            dataType: "json",
+            contentType: "application/json",
+            success: function(response){
+
+            },
+            error: function(error){
+                window.alert(error);
+            }
+        });
+        event.stopPropagation();
+    });
+
+    $("#selectors").click(function(){
+        $("#selectors").fadeOut();
+    });
+
     $("#closeSelectorsButton").click(function(){
-        $("#selectors").hide();
+        $("#selectors").fadeOut();
     });
 
     $("#saveGridButton").click(function(){
@@ -166,12 +205,24 @@ $( document ).ready(function() {
         event.stopPropagation(); // stops the .scriptButton from receiving a click too
     });
 
+    var lastPickerChange = 0;
+
+    window.setInterval(function(){
+        var d = new Date();
+        if(d.getTime() > lastPickerChange + 1000){
+            $("#colorPreview").fadeOut();
+            lastPickerChange = d.getTime();
+        }
+    });
+
     $(document).on("click", ".scriptButton", function(){
         var widget = $(this);
         var script = scriptForId(widget.attr("id"));
         $("#selectorsContent").empty();
         var selectorsHTML = "";
         var i;
+        var colSizes = [];
+
         var colSize = 12 / script.selectors.length;
         // determine how to lay out the selectors
         if(script.selectors.length == 5){
@@ -180,13 +231,51 @@ $( document ).ready(function() {
             colSize = 1;
         }
 
+        for(var i = 0; i < script.selectors.length; i++){
+            colSizes.push(colSize);
+        }
+
+        if(script.selectors.length == 3){
+            colSizes[0] = 6;
+            colSizes[1] = 6;
+            colSizes[2] = 12;
+        }
+
         for(i = 0; i < script.selectors.length; i++){
             var selector = selectorForId(script.selectors[i]);
             console.log(script.selectors[i]);
-            selectorsHTML += '<div class="col-md-' + colSize + '">' + selector.html + '</div>';
+            selectorsHTML += '<div class="text-center col-sm-' + colSizes[i] + '">' + selector.html + '</div>';
         }
+
         $("#selectorsContent").html(selectorsHTML);
         $("#selectors").show();
+
+        var colorPickers = document.getElementsByClassName("colorPicker");
+        var i;
+        for(i = 0; i < colorPickers.length; i++){
+            var colorPicker = $(colorPickers[i]);
+            colorPicker.tinycolorpicker();
+            colorPicker.bind("change", function(){
+                var input = $(this).find("input");
+                $("#colorPreview").css("background-color", input.attr("value"));
+                $("#colorPreview").show();
+                var d = new Date();
+                lastPickerChange = d.getTime();
+            });
+            colorPicker.data("plugin_tinycolorpicker").setColor("#FF45CC");
+        }
+        $('.speed-slider').slider({
+          formatter: function(value) {
+            return 'Speed: ' + value + '%';
+          }
+        });
+        $('.value-slider').slider({
+          formatter: function(value) {
+            return 'Current value: ' + value;
+          }
+        });
+        $('.slider-selection').css('background', '#74C474');
+        $('.slider-track-high').css('background', '#BBBBBB');
     });
 
     {% for selector in selectors %}
